@@ -71,14 +71,37 @@ func main() {
 			return cli.NewExitError("Error, missing github personal access token!", 86)
 		}
 		ctx, githubClient := createGithubClient(c.String("github_token"))
-		repos, _, err := githubClient.Repositories.List(ctx, "", nil)
+		organizations, _, err := githubClient.Organizations.List(ctx, "", nil)
 		if err != nil {
-			return cli.NewExitError("Error connecting to github", 87)
-		}
-		if len(repos) > 0 {
-			fmt.Print(repos)
-		}
+			return cli.NewExitError("Error grabbing all organizations from github", 87)
+		} else {
+			if len(organizations) > 0 {
+				//fmt.Println(organizations)
+				for _, organization := range organizations {
+					//fmt.Println(organization)
+					//listOptions := &github.RepositoryListByOrgOptions{PerPage:200}
+					repositories, _, err := githubClient.Repositories.ListByOrg(ctx, organization.GetLogin(), nil)
+					if err != nil {
+						return cli.NewExitError("Error grabbing all repositories from github", 87)
+					} else {
+						fmt.Printf("There are %d repositories for organization %s\n", len(repositories), organization.GetLogin())
+						for _, repository := range repositories {
+							fmt.Printf("Getting Open PR's for %s at repository %s\n", organization.GetLogin(), repository.GetName())
 
+							//pullRequests, _, err := githubClient.PullRequests.List(ctx, organization.GetLogin(), repository.GetName(), )
+							//if err != nil {
+							//	return cli.NewExitError("Error grabbing all pull requests for repository", 87)
+							//} else {
+							//	for _, pull := range pullRequests {
+							//		fmt.Sprintf("Open Pull Request #%d by %d - %d", pull.GetNumber(), pull.GetUser().GetName(), pull.GetTitle())
+							//	}
+							//}
+						}
+
+					}
+				}
+			}
+		}
 		return nil
 	}
 
