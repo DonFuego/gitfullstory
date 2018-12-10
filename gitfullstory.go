@@ -12,6 +12,12 @@ import (
 	"github.com/urfave/cli"
 )
 
+// globalListOptions is the setting used for all list functions
+// keep in mind, github api returns default of 30 and max of 100 so you must use pagination for > 100
+var globalListOptions = &github.ListOptions {
+	PerPage: 100,
+}
+
 func createGithubClient(accessToken string) (ctx context.Context, githubClient *github.Client) {
 	ctx = context.Background()
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken})
@@ -79,8 +85,10 @@ func main() {
 				//fmt.Println(organizations)
 				for _, organization := range organizations {
 					//fmt.Println(organization)
-					//listOptions := &github.RepositoryListByOrgOptions{PerPage:200}
-					repositories, _, err := githubClient.Repositories.ListByOrg(ctx, organization.GetLogin(), nil)
+					repositoryListOptions := &github.RepositoryListByOrgOptions {
+						 ListOptions: *globalListOptions,
+					}
+					repositories, _, err := githubClient.Repositories.ListByOrg(ctx, organization.GetLogin(), repositoryListOptions)
 					if err != nil {
 						return cli.NewExitError("Error grabbing all repositories from github", 87)
 					} else {
