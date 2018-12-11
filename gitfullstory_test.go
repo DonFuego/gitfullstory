@@ -23,10 +23,43 @@ func TestFetchAllRepositoriesByOrgName(t *testing.T) {
 
 	fetchAllRepositoriesByOrgName("Hearst-Hatchery", repositoryListOptions)
 
-	if repos == nil {
+	if repositories == nil {
 		t.Error("Repositories should not be empty")
 	} else {
-		t.Logf("fetchAllRepositoriesByOrgName -> has values: %d", len(repos))
+		t.Logf("fetchAllRepositoriesByOrgName -> has values: %d", len(repositories))
+	}
+}
+
+func TestParseOrgsFromCommandline(t *testing.T) {
+	orgTest1 := "ideo, HearstAuto"
+	parseOrgsFromCommandline(orgTest1)
+
+	if orgs == nil || len(orgs) <= 0 {
+		t.Error("orgs should not be empty!")
+	} else {
+		t.Logf("parseOrgsFromCommandline -> has values: %s", orgs)
+	}
+
+	orgs = orgs[:0]
+
+	orgTest2 := ""
+	parseOrgsFromCommandline(orgTest2)
+
+	if len(orgs) > 1 {
+		t.Error("orgs should be empty!")
+	} else {
+		t.Logf("parseOrgsFromCommandline -> has no values: %s", orgs)
+	}
+
+	orgs = orgs[:0]
+
+	orgTest3 := "ideo,,,,"
+	parseOrgsFromCommandline(orgTest3)
+
+	if len(orgs) > 1 {
+		t.Error("orgs should contain only 1 element!")
+	} else {
+		t.Logf("parseOrgsFromCommandline -> has 1 value: %s", orgs)
 	}
 }
 
