@@ -12,18 +12,50 @@ import (
 	"github.com/urfave/cli"
 )
 
-// globalListOptions is the setting used for all list functions
+var ctx context.Context
+var githubClient *github.Client
+
+var organizations []*github.Organization
+var fetchOrgsError error
+var repos = make([]*github.Repository, 0)
+
+// globalListOptions is the setting used for all github api list functions
 // keep in mind, github api returns default of 30 and max of 100 so you must use pagination for > 100
 var globalListOptions = &github.ListOptions {
 	PerPage: 100,
+	Page: 1,
 }
 
-func createGithubClient(accessToken string) (ctx context.Context, githubClient *github.Client) {
+func initializeGithubClient(accessToken string) {
 	ctx = context.Background()
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken})
 	tokenClient := oauth2.NewClient(ctx, tokenSource)
 	githubClient = github.NewClient(tokenClient)
-	return
+}
+
+func fetchOrganizations() {
+	organizations, _, fetchOrgsError = githubClient.Organizations.List(ctx, "", nil)
+	if fetchOrgsError != nil {
+		log.Fatal("Error retrieving organizations from Github!")
+	}
+}
+
+func fetchAllRepositoriesByOrgName(orgName string, repositoryListOptions *github.RepositoryListByOrgOptions) {
+	log.Printf("Fetching repositories for org: %s on page %d", orgName, repositoryListOptions.ListOptions.Page)
+	repositories, response, err := githubClient.Repositories.ListByOrg(ctx, orgName, repositoryListOptions)
+
+	if err  != nil {
+		log.Fatalf("Error fetching repositories for organization %s.  Error: %s", orgName, err)
+	} else {
+		log.Printf("Found %d repos on page %d for org %s", len(repositories), repositoryListOptions.ListOptions.Page, orgName)
+		for _, repo := range repositories {
+			repos = append(repos, repo)
+		}
+		if response.NextPage != 0 {
+			repositoryListOptions.ListOptions.Page++
+			fetchAllRepositoriesByOrgName(orgName, repositoryListOptions)
+		}
+	}
 }
 
 func main() {
@@ -75,41 +107,31 @@ func main() {
 	app.Action = func(c *cli.Context) error {
 		if c.String("github_token") == "" {
 			return cli.NewExitError("Error, missing github personal access token!", 86)
-		}
-		ctx, githubClient := createGithubClient(c.String("github_token"))
-		organizations, _, err := githubClient.Organizations.List(ctx, "", nil)
-		if err != nil {
-			return cli.NewExitError("Error grabbing all organizations from github", 87)
 		} else {
-			if len(organizations) > 0 {
-				//fmt.Println(organizations)
-				for _, organization := range organizations {
-					//fmt.Println(organization)
-					repositoryListOptions := &github.RepositoryListByOrgOptions {
-						 ListOptions: *globalListOptions,
-					}
-					repositories, _, err := githubClient.Repositories.ListByOrg(ctx, organization.GetLogin(), repositoryListOptions)
-					if err != nil {
-						return cli.NewExitError("Error grabbing all repositories from github", 87)
-					} else {
-						fmt.Printf("There are %d repositories for organization %s\n", len(repositories), organization.GetLogin())
-						for _, repository := range repositories {
-							fmt.Printf("Getting Open PR's for %s at repository %s\n", organization.GetLogin(), repository.GetName())
-
-							//pullRequests, _, err := githubClient.PullRequests.List(ctx, organization.GetLogin(), repository.GetName(), )
-							//if err != nil {
-							//	return cli.NewExitError("Error grabbing all pull requests for repository", 87)
-							//} else {
-							//	for _, pull := range pullRequests {
-							//		fmt.Sprintf("Open Pull Request #%d by %d - %d", pull.GetNumber(), pull.GetUser().GetName(), pull.GetTitle())
-							//	}
-							//}
+			initializeGithubClient(c.String("github_token"))
+		}
+		fetchOrganizations()
+		if len(organizations) > 0 {
+			for _, organization := range organizations {
+				repositoryListOptions := &github.RepositoryListByOrgOptions {
+					 ListOptions: *globalListOptions,
+				}
+				fetchAllRepositoriesByOrgName(organization.GetLogin(), repositoryListOptions)
+				if len(repos) > 0 {
+					for _, repository := range repos {
+						pullRequests, _, err := githubClient.PullRequests.List(ctx, organization.GetLogin(), repository.GetName(), nil)
+						if err != nil {
+							log.Printf("Error fetching pull requests for repository '%s' - %s", repository.GetName(), err)
+						} else {
+							for _, pull := range pullRequests {
+								fmt.Printf("Open Pull Request #%d by %s - %s\n", pull.GetNumber(), pull.GetUser().GetLogin(), pull.GetTitle())
+							}
 						}
-
 					}
 				}
 			}
 		}
+
 		return nil
 	}
 
