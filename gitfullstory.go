@@ -199,7 +199,11 @@ func main() {
 							log.Printf("Error fetching pull requests for repository '%s' - %s", repository.GetName(), err)
 						} else {
 							for _, pull := range pullRequests {
-								if _, exist := usersMap[ pull.GetUser().GetLogin()]; exist {
+								if (len(usersMap) > 0) {
+									if _, exist := usersMap[ pull.GetUser().GetLogin()]; exist {
+										fmt.Printf("Open Pull Request #%d by %s - %s\n", pull.GetNumber(), pull.GetUser().GetLogin(), pull.GetTitle())
+									}
+								} else {
 									fmt.Printf("Open Pull Request #%d by %s - %s\n", pull.GetNumber(), pull.GetUser().GetLogin(), pull.GetTitle())
 								}
 							}
