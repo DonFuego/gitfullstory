@@ -18,21 +18,18 @@ var ctx context.Context
 // githubClient is our authorized api client to pull data from github
 var githubClient *github.Client
 
-// organizations stores a list of orgs a user is a part of
-var organizations []*github.Organization
-
-// holds parsed commandline orgs that are sliced and filtered for empty string
+// holds parsed commandline orgs, projects and users that are sliced and filtered for empty string
 var orgs = make([]string, 0)
+var projectsMap = make(map[string]string)
+var usersMap = make(map[string]string)
 
-// fetchOrgsError holds any errors while grabbing the user's list of orgs
-var fetchOrgsError error
-// repositories holds the list of repositories for all the orgs - we recursively append to this
+// repos holds the list of repos for all the orgs - we recursively append to this
 // slice due to api request per page limits
-var repositories = make([]*github.Repository, 0)
+var repos = make([]*github.Repository, 0)
 
 // globalListOptions is the setting used for all github api list functions
 // keep in mind, github api returns default of 30 and max of 100 so you must use pagination for > 100
-// this is used ot recursively loop through repositories at the moment
+// this is used ot recursively loop through repos at the moment
 var globalListOptions = &github.ListOptions {
 	PerPage: 100,
 	Page: 1,
@@ -49,10 +46,10 @@ func initializeGithubClient(accessToken string) {
 
 // fetchAllOrganizations uses the github api client to retrieve all organizations for the user
 func fetchAllOrganizations() {
-	organizations, _, fetchOrgsError = githubClient.Organizations.List(ctx, "", nil)
+	organizations, _, err := githubClient.Organizations.List(ctx, "", nil)
 	// if we can't get the orgs, then we ultimately can't get repos for the team/user
-	if fetchOrgsError != nil {
-		log.Fatalf("Error retrieving organizations from Github!  Reason: %s", fetchOrgsError)
+	if err != nil {
+		log.Fatalf("Error retrieving organizations from Github!  Reason: %s", err)
 	} else {
 		for _, org := range organizations {
 			orgs = append(orgs, org.GetLogin())
@@ -66,6 +63,26 @@ func parseOrgsFromCommandline(orgToken string) {
 	orgs = filterEmpty(orgs)
 }
 
+// parseProjectsFromCommandline parses the comma separated list of projects and set them for the cli app
+func parseProjectsFromCommandline(projectsToken string) {
+	projects := filterEmpty(strings.Split(projectsToken, ","))
+
+	// put project values into map
+	for _, project := range projects {
+		projectsMap[project] = project
+	}
+}
+
+// parseUsersFromCommandline parses the comma separated list of users and set them for the cli app
+func parseUsersFromCommandline(usersToken string) {
+	users := filterEmpty(strings.Split(usersToken, ","))
+
+	// put user values into map
+	for _, user := range users {
+		usersMap[user] = user
+	}
+}
+
 // filterEmpty removes empty values from a slice - turns out more performant than strings.FieldsFunc.
 func filterEmpty(strValue []string) []string {
 	var filtered []string
@@ -77,22 +94,28 @@ func filterEmpty(strValue []string) []string {
 	return filtered
 }
 
-// fetchAllRepositoriesByOrgName retrieves all the repositories for a given organization.  If there are more than 100 returned,
+// fetchRepositoriesByOrgName retrieves all the repos for a given organization.  If there are more than 100 returned,
 // then it will recursively call again and bump up the page number.
-func fetchAllRepositoriesByOrgName(orgName string, repositoryListOptions *github.RepositoryListByOrgOptions) {
-	log.Printf("Fetching repositories for org: %s on page %d", orgName, repositoryListOptions.ListOptions.Page)
+func fetchRepositoriesByOrgName(orgName string, repositoryListOptions *github.RepositoryListByOrgOptions) {
+	//log.Printf("Fetching repos for org: %s on page %d", orgName, repositoryListOptions.ListOptions.Page)
 	repositories, response, err := githubClient.Repositories.ListByOrg(ctx, orgName, repositoryListOptions)
 
 	if err  != nil {
-		log.Fatalf("Error fetching repositories for organization %s.  Error: %s", orgName, err)
+		log.Fatalf("Error fetching repos for organization %s.  Error: %s", orgName, err)
 	} else {
-		log.Printf("Found %d repositories on page %d for org %s", len(repositories), repositoryListOptions.ListOptions.Page, orgName)
+		//log.Printf("Found %d repos on page %d for org %s", len(repositories), repositoryListOptions.ListOptions.Page, orgName)
 		for _, repo := range repositories {
-			repositories = append(repositories, repo)
+			if len(projectsMap) > 0 {
+				if _, exist := projectsMap[repo.GetName()]; exist {
+					repos = append(repos, repo)
+				}
+			} else {
+				repos = append(repos, repo)
+			}
 		}
 		if response.NextPage != 0 {
 			repositoryListOptions.ListOptions.Page++
-			fetchAllRepositoriesByOrgName(orgName, repositoryListOptions)
+			fetchRepositoriesByOrgName(orgName, repositoryListOptions)
 		}
 	}
 }
@@ -150,16 +173,27 @@ func main() {
 			parseOrgsFromCommandline(c.String("orgs"))
 		}
 
-		log.Printf("Searching over github orgs: %s", orgs)
+		log.Printf("Searching for open PR's within github orgs: %s\n", orgs)
+
+		if c.String("projects") != "" {
+			parseProjectsFromCommandline(c.String("projects"))
+			log.Printf("...for only projects: %s\n", projectsMap)
+		}
+
+		if c.String("users") != "" {
+			parseUsersFromCommandline(c.String("users"))
+			log.Printf("...by users: %s \n", usersMap)
+		}
 
 		if len(orgs) > 0 {
 			for _, orgName := range orgs {
 				repositoryListOptions := &github.RepositoryListByOrgOptions {
 					 ListOptions: *globalListOptions,
 				}
-				fetchAllRepositoriesByOrgName(orgName, repositoryListOptions)
-				if len(repositories) > 0 {
-					for _, repository := range repositories {
+				fetchRepositoriesByOrgName(orgName, repositoryListOptions)
+				//log.Printf("We are going to get pull requests for %s repos", repos)
+				if len(repos) > 0 {
+					for _, repository := range repos {
 						pullRequests, _, err := githubClient.PullRequests.List(ctx, orgName, repository.GetName(), nil)
 						if err != nil {
 							log.Printf("Error fetching pull requests for repository '%s' - %s", repository.GetName(), err)
