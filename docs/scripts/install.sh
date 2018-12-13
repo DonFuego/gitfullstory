@@ -19,12 +19,13 @@ TEMP_DIR="/tmp"
 # Location of install
 INSTALL_URL="https://donfuego.github.io/gitfullstory/scripts"
 INSTALL_FILE="gitfullstory.tar.gz"
+INSTALL_BINARY="gitfullstory"
 
 # Our makeshift logger command
 log()  { printf "%b\n" "$*"; }
 
 # Our makeshift debug logger
-debug(){ [[ ${rvm_debug_flag:-0} -eq 0 ]] || printf "%b\n" "$*" >&2; }
+debug(){ [[ ${gitfullstory_debug_flag:-0} -eq 0 ]] || printf "%b\n" "$*" >&2; }
 
 # Our makeshift fail logger
 fail() { log "\nERROR: $*\n" >&2 ; exit 1 ; }
@@ -54,7 +55,7 @@ gitfullstory_get_package()
   _url="${INSTALL_URL}/${INSTALL_FILE}"
   
   log "Downloading ${_url}"
-  __gitfullstory_curl -sS ${_url} > ${TEMP_DIR}/${INSTALL_FILE} ||
+  __gitfullstory_curl -sS ${_url} > ${TEMP_DIR}/${INSTALL_FILE} && log "Download complete" ||
   {
     _return=$?
     case $_return in
@@ -66,9 +67,39 @@ gitfullstory_get_package()
   }
 }
 
+gitfullstory_unpack() 
+{
+    log "Unpacking binary..."
+    # Unpack binary
+    __gitfullstory_debug_command cd ${TEMP_DIR} && __gitfullstory_debug_command tar xzf ./${INSTALL_FILE} && log "Binary unpacked" ||
+    {
+        _return=$?
+        log "Could not extract gitfullstory binary."
+        return $_return
+    }
+}
+
+gitfullstory_copy()
+{
+    log "Copying binary to ${INSTALL_DIR}"
+    # Unpack binary
+    __gitfullstory_debug_command mv ${TEMP_DIR}/${INSTALL_BINARY} ${INSTALL_DIR} && echo "Copy complete" ||
+    {
+        _return=$?
+        log "Could not copy binary to ${INSTALL_DIR}"
+        return $_return
+    }
+}
+
+gitfullstory_cleanup()
+{
+    # Cleanup
+    __gitfullstory_debug_command rm ${TEMP_DIR}/${INSTALL_FILE}
+}
+
 gitfullstory_post_install()
 {
-    log "We are done installing."
+    log "We are done installing"
 }
 
 __gitfullstory_curl()
@@ -117,6 +148,9 @@ gitfullstory_install()
     log "Installing gitfullstory"
     gitfullstory_install_initialize
     gitfullstory_get_package
+    gitfullstory_unpack
+    gitfullstory_copy
+    gitfullstory_cleanup
     gitfullstory_post_install
 }
 
