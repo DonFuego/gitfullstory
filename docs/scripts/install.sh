@@ -1,10 +1,127 @@
 #!/usr/bin/env bash
 
+set -o errtrace
+set -o errexit
+
 echo "----------------------------------------------------"
 echo "------------------ gitfullstory --------------------"
 echo "--------------- @author Todd Matthews --------------"
-echo "--------------- @date 07.09.2017 -------------------"
+echo "--------------- @date 12.09.2018 -------------------"
+
+# Installed using command: curl -sL https://donfuego.github.io/gitfullstory/scripts/install.sh | bash
 
 # Create destination folder
 INSTALL_DIR="/usr/local/bin"
 
+# Location of install
+INSTALL_URL="https://donfuego.github.io/gitfullstory/scripts"
+INSTALL_FILE="gitfullstory"
+
+# Our makeshift logger command
+log()  { printf "%b\n" "$*"; }
+
+# Our makeshift debug logger
+debug(){ [[ ${rvm_debug_flag:-0} -eq 0 ]] || printf "%b\n" "$*" >&2; }
+
+# Our makeshift fail logger
+fail() { log "\nERROR: $*\n" >&2 ; exit 1 ; }
+
+# Initialize anything needed during setup - correct version of bash, which, grep and curl
+gitfullstory_install_initialize()
+{
+    log "gitfullstory_install_initialize() - initializing install..."
+    BASH_MIN_VERSION="3.2.25"
+    if
+        [[ -n "${BASH_VERSION:-}" &&
+        "$(\printf "%b" "${BASH_VERSION:-}\n${BASH_MIN_VERSION}\n" | LC_ALL=C \sort -t"." -k1,1n -k2,2n -k3,3n | \head -n1)" != "${BASH_MIN_VERSION}"
+        ]]
+    then
+        echo "BASH ${BASH_MIN_VERSION} required (you have $BASH_VERSION)"
+        exit 1
+    fi
+
+    \which which >/dev/null 2>&1 || fail "Could not find 'which' command, make sure it's available first before continuing installation."
+    \which grep >/dev/null 2>&1 || fail "Could not find 'grep' command, make sure it's available first before continuing installation."    
+}
+
+gitfullstory_get_package()
+{
+  _url="${INSTALL_URL}/${INSTALL_FILE}"
+  
+  log "Downloading ${_url}"
+  __gitfullstory_curl -sS ${_url} > ${INSTALL_DIR}/${INSTALL_FILE} ||
+  {
+    _return=$?
+    case $_return in
+      (*)
+        log "Could not download '${_url}'. curl returned status '$_return'."
+        ;;
+    esac
+    return $_return
+  }
+}
+
+gitfullstory_post_install()
+{
+    log "We are done installing."
+}
+
+__gitfullstory_curl()
+(
+  __gitfullstory_which curl >/dev/null ||
+  {
+    gitfullstory_error "gitfullstory requires 'curl'. Install 'curl' first and try again."
+    return 200
+  }
+
+  typeset -a __flags
+  __flags=( --fail --location --max-redirs 10 )
+
+  [[ "$*" == *"--max-time"* ]] ||
+  [[ "$*" == *"--connect-timeout"* ]] ||
+    __flags+=( --connect-timeout 30 --retry-delay 2 --retry 3 )
+
+  __gitfullstory_curl_output_control
+
+  unset curl
+  __gitfullstory_debug_command \curl "${__flags[@]}" "$@" || return $?
+)
+
+__gitfullstory_curl_output_control()
+{
+  if
+    [[ " $*" == *" -s"* || " $*" == *" --silent"* ]]
+  then
+    # make sure --show-error is used with --silent
+    [[ " $*" == *" -S"* || " $*" == *" -sS"* || " $*" == *" --show-error"* ]] ||
+    {
+      __flags+=( "--show-error" )
+    }
+  fi
+}
+
+__gitfullstory_debug_command()
+{
+  debug "Running($#): $*"
+  "$@" || return $?
+  true
+}
+
+# Checks for which version and if curl is installed
+__gitfullstory_which(){ which "$@" || return $?; true; }
+
+# Outputs an error string passed into this function
+gitfullstory_error()  {
+    printf "ERROR: %b\n" "$*"; 
+}
+
+gitfullstory_install() 
+{
+    log "gitfullstory_install() - here we go."
+    gitfullstory_install_initialize
+    gitfullstory_get_package
+    gitfullstory_post_install
+}
+
+# Kick off the install process
+gitfullstory_install
