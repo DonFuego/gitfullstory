@@ -9,13 +9,16 @@ echo "--------------- @author Todd Matthews --------------"
 echo "--------------- @date 12.09.2018 -------------------"
 
 # Installed using command: curl -sL https://donfuego.github.io/gitfullstory/scripts/install.sh | bash
+# Install file created using: tar -zcvf gitfullstory.tar.gz ./gitfullstory
 
 # Create destination folder
 INSTALL_DIR="/usr/local/bin"
 
+TEMP_DIR="/tmp"
+
 # Location of install
 INSTALL_URL="https://donfuego.github.io/gitfullstory/scripts"
-INSTALL_FILE="gitfullstory"
+INSTALL_FILE="gitfullstory.tar.gz"
 
 # Our makeshift logger command
 log()  { printf "%b\n" "$*"; }
@@ -29,7 +32,7 @@ fail() { log "\nERROR: $*\n" >&2 ; exit 1 ; }
 # Initialize anything needed during setup - correct version of bash, which, grep and curl
 gitfullstory_install_initialize()
 {
-    log "gitfullstory_install_initialize() - initializing install..."
+    log "Checking for install requirements..."
     BASH_MIN_VERSION="3.2.25"
     if
         [[ -n "${BASH_VERSION:-}" &&
@@ -41,7 +44,9 @@ gitfullstory_install_initialize()
     fi
 
     \which which >/dev/null 2>&1 || fail "Could not find 'which' command, make sure it's available first before continuing installation."
-    \which grep >/dev/null 2>&1 || fail "Could not find 'grep' command, make sure it's available first before continuing installation."    
+    \which grep >/dev/null 2>&1 || fail "Could not find 'grep' command, make sure it's available first before continuing installation."
+    \which curl >/dev/null 2>&1 || fail "Could not find 'curl' command, make sure it's available first before continuing installation."
+    \which tar >/dev/null 2>&1 || fail "Could not find 'tar' command, make sure it's available first before continuing installation."
 }
 
 gitfullstory_get_package()
@@ -49,7 +54,7 @@ gitfullstory_get_package()
   _url="${INSTALL_URL}/${INSTALL_FILE}"
   
   log "Downloading ${_url}"
-  __gitfullstory_curl -sS ${_url} > ${INSTALL_DIR}/${INSTALL_FILE} ||
+  __gitfullstory_curl -sS ${_url} > ${TEMP_DIR}/${INSTALL_FILE} ||
   {
     _return=$?
     case $_return in
@@ -68,12 +73,6 @@ gitfullstory_post_install()
 
 __gitfullstory_curl()
 (
-  __gitfullstory_which curl >/dev/null ||
-  {
-    gitfullstory_error "gitfullstory requires 'curl'. Install 'curl' first and try again."
-    return 200
-  }
-
   typeset -a __flags
   __flags=( --fail --location --max-redirs 10 )
 
@@ -107,17 +106,15 @@ __gitfullstory_debug_command()
   true
 }
 
-# Checks for which version and if curl is installed
-__gitfullstory_which(){ which "$@" || return $?; true; }
-
 # Outputs an error string passed into this function
-gitfullstory_error()  {
+gitfullstory_error()  
+{
     printf "ERROR: %b\n" "$*"; 
 }
 
 gitfullstory_install() 
 {
-    log "gitfullstory_install() - here we go."
+    log "Installing gitfullstory"
     gitfullstory_install_initialize
     gitfullstory_get_package
     gitfullstory_post_install
