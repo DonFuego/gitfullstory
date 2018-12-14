@@ -14,6 +14,7 @@ echo "--------------- @date 12.09.2018 -------------------"
 # Create destination folder
 INSTALL_DIR="/usr/local/bin"
 
+# Temporary write directory to store downloaded/unpacked install file
 TEMP_DIR="/tmp"
 
 # Location of install
@@ -50,6 +51,7 @@ gitfullstory_install_initialize()
     \which tar >/dev/null 2>&1 || fail "Could not find 'tar' command, make sure it's available first before continuing installation."
 }
 
+# Retrieves compressed binary from remote location
 gitfullstory_get_package()
 {
   _url="${INSTALL_URL}/${INSTALL_FILE}"
@@ -67,6 +69,8 @@ gitfullstory_get_package()
   }
 }
 
+# Unpackages the binary
+# TODO: Add checksum
 gitfullstory_unpack() 
 {
     log "Unpacking binary..."
@@ -79,6 +83,7 @@ gitfullstory_unpack()
     }
 }
 
+# Copies the uncompressed binary from the downloaded folder into a folder on the user's path i.e. /usr/local/bin
 gitfullstory_copy()
 {
     log "Copying binary to ${INSTALL_DIR}"
@@ -91,17 +96,20 @@ gitfullstory_copy()
     }
 }
 
+# Removes any temporary files downloaded/created during install
 gitfullstory_cleanup()
 {
     # Cleanup
     __gitfullstory_debug_command rm ${TEMP_DIR}/${INSTALL_FILE}
 }
 
+# Post installation output instructions
 gitfullstory_post_install()
 {
     log "We are done installing"
 }
 
+# Wrapper for user's curl command
 __gitfullstory_curl()
 (
   typeset -a __flags
@@ -117,6 +125,7 @@ __gitfullstory_curl()
   __gitfullstory_debug_command \curl "${__flags[@]}" "$@" || return $?
 )
 
+# Handle's how the user's curl commands outputs errors
 __gitfullstory_curl_output_control()
 {
   if
@@ -130,6 +139,7 @@ __gitfullstory_curl_output_control()
   fi
 }
 
+# Used for debugging local commands
 __gitfullstory_debug_command()
 {
   debug "Running($#): $*"
@@ -143,6 +153,7 @@ gitfullstory_error()
     printf "ERROR: %b\n" "$*"; 
 }
 
+# Main install orchestration method, handles order of execution
 gitfullstory_install() 
 {
     log "Installing gitfullstory"
