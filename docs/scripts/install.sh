@@ -107,7 +107,7 @@ gitfullstory_cleanup()
 gitfullstory_post_install()
 {
     log "Installation Successful!"
-    log "Make sure '/usr/local/bin' is on your $PATH"
+    log "Make sure '/usr/local/bin' is on your PATH"
     log "type 'gitfullstory -help' for usage details"
 }
 
