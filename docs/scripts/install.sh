@@ -106,7 +106,9 @@ gitfullstory_cleanup()
 # Post installation output instructions
 gitfullstory_post_install()
 {
-    log "We are done installing"
+    log "Installation Successful!"
+    log "Make sure '/usr/local/bin' is on your $PATH"
+    log "type 'gitfullstory -help' for usage details"
 }
 
 # Wrapper for user's curl command
