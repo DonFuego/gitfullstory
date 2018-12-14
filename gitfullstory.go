@@ -15,6 +15,7 @@ import (
 
 // ctx holds our github api context
 var ctx context.Context
+
 // githubClient is our authorized api client to pull data from github
 var githubClient *github.Client
 
@@ -30,9 +31,9 @@ var repos = make([]*github.Repository, 0)
 // globalListOptions is the setting used for all github api list functions
 // keep in mind, github api returns default of 30 and max of 100 so you must use pagination for > 100
 // this is used ot recursively loop through repos at the moment
-var globalListOptions = &github.ListOptions {
+var globalListOptions = &github.ListOptions{
 	PerPage: 100,
-	Page: 1,
+	Page:    1,
 }
 
 // initializeGithubClient takes the user's passed in personal github token and creates an oauth2
@@ -100,7 +101,7 @@ func fetchRepositoriesByOrgName(orgName string, repositoryListOptions *github.Re
 	//log.Printf("Fetching repos for org: %s on page %d", orgName, repositoryListOptions.ListOptions.Page)
 	repositories, response, err := githubClient.Repositories.ListByOrg(ctx, orgName, repositoryListOptions)
 
-	if err  != nil {
+	if err != nil {
 		log.Fatalf("Error fetching repos for organization %s.  Error: %s", orgName, err)
 	} else {
 		//log.Printf("Found %d repos on page %d for org %s", len(repositories), repositoryListOptions.ListOptions.Page, orgName)
@@ -120,7 +121,6 @@ func fetchRepositoriesByOrgName(orgName string, repositoryListOptions *github.Re
 	}
 }
 
-
 // main kicks off the cli and parses incoming flags and commands
 func main() {
 	app := cli.NewApp()
@@ -129,29 +129,29 @@ func main() {
 	app.Usage = "command-line utility for seeing your team's open pull requests"
 	app.Version = "0.0.1"
 
-	app.Flags = []cli.Flag {
-		cli.StringFlag {
-			Name: "github_token, gt",
-			Value: "",
-			Usage: "your personal access token for github",
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:   "github_token, gt",
+			Value:  "",
+			Usage:  "your personal access token for github",
 			EnvVar: "GITHUB_ACCESS_TOKEN,GITHUB_TOKEN",
 		},
-		cli.StringFlag {
-			Name: "orgs",
-			Value: "",
-			Usage: "comma separated list of github organizations to filter pull requests on otherwise it fetches for all",
+		cli.StringFlag{
+			Name:   "orgs",
+			Value:  "",
+			Usage:  "comma separated list of github organizations to filter pull requests on otherwise it fetches for all",
 			EnvVar: "GITFULLSTORY_ORGS",
 		},
-		cli.StringFlag {
-			Name: "projects",
-			Value: "",
-			Usage: "comma separated list of github projects to filter pull requests on otherwise it fetches for all",
+		cli.StringFlag{
+			Name:   "projects",
+			Value:  "",
+			Usage:  "comma separated list of github projects to filter pull requests on otherwise it fetches for all",
 			EnvVar: "GITFULLSTORY_PROJECTS",
 		},
-		cli.StringFlag {
-			Name: "users",
-			Value: "",
-			Usage: "comma separated list of github users to filter pull requests on otherwise it fetches for all",
+		cli.StringFlag{
+			Name:   "users",
+			Value:  "",
+			Usage:  "comma separated list of github users to filter pull requests on otherwise it fetches for all",
 			EnvVar: "GITFULLSTORY_USERS",
 		},
 	}
@@ -173,25 +173,20 @@ func main() {
 			parseOrgsFromCommandline(c.String("orgs"))
 		}
 
-		log.Printf("Searching for open PR's within github orgs: %s\n", orgs)
-
 		if c.String("projects") != "" {
 			parseProjectsFromCommandline(c.String("projects"))
-			log.Printf("...for only projects: %s\n", projectsMap)
 		}
 
 		if c.String("users") != "" {
 			parseUsersFromCommandline(c.String("users"))
-			log.Printf("...by users: %s \n", usersMap)
 		}
 
 		if len(orgs) > 0 {
 			for _, orgName := range orgs {
-				repositoryListOptions := &github.RepositoryListByOrgOptions {
-					 ListOptions: *globalListOptions,
+				repositoryListOptions := &github.RepositoryListByOrgOptions{
+					ListOptions: *globalListOptions,
 				}
 				fetchRepositoriesByOrgName(orgName, repositoryListOptions)
-				//log.Printf("We are going to get pull requests for %s repos", repos)
 				if len(repos) > 0 {
 					for _, repository := range repos {
 						pullRequests, _, err := githubClient.PullRequests.List(ctx, orgName, repository.GetName(), nil)
@@ -199,8 +194,8 @@ func main() {
 							log.Printf("Error fetching pull requests for repository '%s' - %s", repository.GetName(), err)
 						} else {
 							for _, pull := range pullRequests {
-								if (len(usersMap) > 0) {
-									if _, exist := usersMap[ pull.GetUser().GetLogin()]; exist {
+								if len(usersMap) > 0 {
+									if _, exist := usersMap[pull.GetUser().GetLogin()]; exist {
 										fmt.Printf("Open Pull Request #%d by %s - %s\n", pull.GetNumber(), pull.GetUser().GetLogin(), pull.GetTitle())
 									}
 								} else {
